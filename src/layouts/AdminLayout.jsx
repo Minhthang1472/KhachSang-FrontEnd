@@ -24,6 +24,11 @@ const AdminLayout = () => {
   const { notifications, removeNotification, clearAllNotifications } = useNotification();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
+  // ================= CẢI TIẾN Ở ĐÂY =================
+  // Lôi thông tin user hiện tại từ "Kho" ra để dùng
+  const { user } = useAuthStore(); 
+  // ===================================================
+
   // Danh sách các menu bên trái
   const menuItems = [
     { key: '/admin/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
@@ -34,15 +39,11 @@ const AdminLayout = () => {
   // Hàm để lấy màu icon dựa trên type
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'success':
-        return '#52c41a';
-      case 'error':
-        return '#ff4d4f';
-      case 'warning':
-        return '#faad14';
+      case 'success': return '#52c41a';
+      case 'error': return '#ff4d4f';
+      case 'warning': return '#faad14';
       case 'info':
-      default:
-        return '#1890ff';
+      default: return '#1890ff';
     }
   };
 
@@ -161,8 +162,13 @@ const AdminLayout = () => {
               placement="bottomRight"
             >
               <Space style={{ cursor: 'pointer' }}>
-                <Avatar icon={<UserOutlined />} src="https://api.dicebear.com/7.x/notionists/svg?seed=Thang" />
-                <Text strong>Minh Thắng (Admin)</Text>
+                {/* ================= CẢI TIẾN Ở ĐÂY ================= */}
+                {/* Tự động tạo ảnh đại diện dựa trên tên của người dùng */}
+                <Avatar icon={<UserOutlined />} src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user?.name || 'Guest'}`} />
+                
+                {/* Hiển thị tên và vai trò động từ Token */}
+                <Text strong>{user?.name || 'Khách'} ({user?.role || 'Chưa rõ'})</Text>
+                {/* =================================================== */}
               </Space>
             </Dropdown>
           </Space>

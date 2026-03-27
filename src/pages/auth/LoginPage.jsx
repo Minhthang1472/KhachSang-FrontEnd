@@ -4,6 +4,7 @@ import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode'; // Đã thêm công cụ giải mã JWT ở đây
 
 const { Title, Text } = Typography;
 
@@ -12,10 +13,10 @@ const LoginPage = () => {
   const setAuth = useAuthStore((state) => state.setAuth);
   const [loading, setLoading] = useState(false);
 
-const onFinish = async (values) => {
+  const onFinish = async (values) => {
     setLoading(true);
     try {
-      // GỌI API .NET THỰC TẾ (Nhớ kiểm tra là http hay https ở Backend nhé)
+      // GỌI API .NET THỰC TẾ
       const res = await axios.post('http://localhost:5262/api/Auth/login', {
         email: values.email,
         password: values.password
@@ -24,8 +25,24 @@ const onFinish = async (values) => {
       // Lấy token từ kết quả API trả về
       const token = res.data.token; 
       
-      // Lưu Token vào "Kho" Zustand
-      setAuth(token, { name: 'Admin', role: 'Admin' }); // Tạm thời hardcode tên User, sau này sẽ giải mã JWT để lấy tên thật
+      // ================= CẢI TIẾN TRÍCH XUẤT DỮ LIỆU THẬT =================
+      // 1. Dùng công cụ giải mã cái Token ra thành 1 Object
+      const decodedToken = jwtDecode(token);
+      
+      // 2. Lôi Tên và Quyền ra từ Token của .NET
+      const realName = decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] 
+                        || decodedToken.name 
+                        || decodedToken.FullName 
+                        || 'Người dùng ẩn danh';
+                        
+      const realRole = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] 
+                        || decodedToken.role 
+                        || decodedToken.Role 
+                        || 'Nhân viên';
+
+      // 3. Đưa thông tin THẬT vào "Kho" Zustand
+      setAuth(token, { name: realName, role: realRole }); 
+      // ====================================================================
       
       message.success('Đăng nhập thành công!');
       navigate('/admin/roles'); // Chuyển thẳng vào trang Admin
