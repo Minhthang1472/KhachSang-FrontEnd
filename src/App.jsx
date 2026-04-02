@@ -5,6 +5,8 @@ import RoleManagePage from './pages/admin/roles/RoleManagePage';
 import UserManagementPage from './pages/admin/UserManagement/UserManagementPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import InventoryPage from './pages/admin/Inventory/InventoryPage';
+import LossCompensationPage from './pages/admin/LossCompensation/LossCompensationPage';
 import { useAuthStore } from './store/authStore';
 import { NotificationProvider } from './context/notificationContext';
 import 'antd/dist/reset.css'; 
@@ -37,6 +39,8 @@ function App() {
           }>
             <Route path="roles" element={<RoleManagePage />} />
             <Route path="users" element={<UserManagementPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="loss-compensation" element={<LossCompensationPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

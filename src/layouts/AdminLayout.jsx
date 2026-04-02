@@ -8,6 +8,8 @@ import {
   UserOutlined,
   DeleteOutlined,
   ClearOutlined,
+  AppstoreOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -34,6 +36,8 @@ const AdminLayout = () => {
     { key: '/admin/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
     { key: '/admin/users', icon: <TeamOutlined />, label: 'Danh sách Nhân sự' },
     { key: '/admin/roles', icon: <SafetyCertificateOutlined />, label: 'Vai trò & Phân quyền' },
+    { key: '/admin/inventory', icon: <AppstoreOutlined />, label: 'Kho vật tư' },
+    { key: '/admin/loss-compensation', icon: <WarningOutlined />, label: 'Thất thoát & Đền bù' },
   ];
 
   // Hàm để lấy màu icon dựa trên type
