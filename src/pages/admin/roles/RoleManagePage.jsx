@@ -34,10 +34,10 @@ const RoleManagePage = () => {
     try {
       const response = await roleApi.getAllRoles();
       console.log('Response từ API:', response);
-      
+
       // ✅ FIX: API trả về { total, data: [...] } nên cần lấy response.data.data
       const rolesData = response.data?.data || response.data || [];
-      
+
       // Kiểm tra xem có phải array không
       if (Array.isArray(rolesData)) {
         setRoles(rolesData);
@@ -76,7 +76,7 @@ const RoleManagePage = () => {
     setIsSaving(true);
     try {
       // Vì Backend của bạn API chỉ nhận 1 quyền mỗi lần gọi, nên mình sẽ dùng vòng lặp gọi API cho từng quyền được tick
-      const promises = checkedPermissions.map(permissionId => 
+      const promises = checkedPermissions.map(permissionId =>
         roleApi.assignPermission({
           roleId: selectedRole.id,
           permissionId: permissionId
@@ -86,7 +86,7 @@ const RoleManagePage = () => {
       // Chờ tất cả các API chạy xong cùng lúc
       await Promise.all(promises);
       message.success(`Đã cấp quyền thành công cho vai trò: ${selectedRole.name}`);
-      
+
       // ✅ THÊM NOTIFICATION GỬI LÊN CHUÔNG
       addNotification(
         'Cấp quyền thành công',
@@ -130,24 +130,24 @@ const RoleManagePage = () => {
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: '10%' },
-    { 
+    {
       title: 'Tên Vai trò', dataIndex: 'name', key: 'name', width: '30%',
       render: (text) => <Text strong>{text}</Text>,
     },
-    { 
-      title: 'Mô tả', 
-      dataIndex: 'description', 
-      key: 'description', 
+    {
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
       width: '40%',
-      render: (text) => <Text>{text || <span style={{color: '#ccc'}}>Chưa có mô tả</span>}</Text>,
+      render: (text) => <Text>{text || <span style={{ color: '#ccc' }}>Chưa có mô tả</span>}</Text>,
     },
     {
       title: 'Thao tác', key: 'action',
       render: (_, record) => (
-        <Button 
-          type="primary" 
+        <Button
+          type="primary"
           icon={<SafetyCertificateOutlined />}
-          disabled={record.name === 'Guest' || record.name === 'Admin'} 
+          disabled={record.name === 'Guest' || record.name === 'Admin'}
           onClick={() => handleOpenDrawer(record)} // Gắn hàm mở ngăn kéo vào nút
         >
           Phân quyền
@@ -169,7 +169,7 @@ const RoleManagePage = () => {
       <Drawer
         title={`Cấp quyền cho chức danh: ${selectedRole?.name}`}
         placement="right"
-        size="default" 
+        size="default"
         onClose={() => setIsDrawerOpen(false)}
         open={isDrawerOpen}
         extra={
@@ -180,10 +180,10 @@ const RoleManagePage = () => {
       >
         <Text type="secondary">Chọn các module mà chức danh này được phép truy cập:</Text>
         <Divider />
-        
+
         {/* Nhóm các ô Checkbox */}
-        <Checkbox.Group 
-          style={{ width: '100%' }} 
+        <Checkbox.Group
+          style={{ width: '100%' }}
           value={checkedPermissions}
           onChange={(checkedValues) => setCheckedPermissions(checkedValues)}
         >

@@ -5,11 +5,11 @@ import RoleManagePage from './pages/admin/roles/RoleManagePage';
 import UserManagementPage from './pages/admin/UserManagement/UserManagementPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import InventoryPage from './pages/admin/Inventory/InventoryPage';
 import LossCompensationPage from './pages/admin/LossCompensation/LossCompensationPage';
+import HousekeepingPage from './pages/admin/Housekeeping/HousekeepingPage';
 import { useAuthStore } from './store/authStore';
 import { NotificationProvider } from './context/notificationContext';
-import 'antd/dist/reset.css'; 
+import 'antd/dist/reset.css';
 
 // Component "Bảo vệ": Kiểm tra có token chưa, chưa có đá về /login
 const ProtectedRoute = ({ children }) => {
@@ -26,7 +26,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to="/admin/roles" replace />} />
-          
+
           {/* Các trang công khai */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -39,7 +39,7 @@ function App() {
           }>
             <Route path="roles" element={<RoleManagePage />} />
             <Route path="users" element={<UserManagementPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
+            <Route path="house-keeping" element={<HousekeepingPage />} />
             <Route path="loss-compensation" element={<LossCompensationPage />} />
           </Route>
         </Routes>

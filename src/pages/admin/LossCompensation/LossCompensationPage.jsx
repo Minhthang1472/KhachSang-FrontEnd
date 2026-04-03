@@ -8,7 +8,13 @@ const { Option } = Select;
 const ROOMS = [
   { id: '101', name: 'Phòng 101' },
   { id: '102', name: 'Phòng 102' },
+  { id: '103', name: 'Phòng 103' },
+  { id: '104', name: 'Phòng 104' },
+  { id: '105', name: 'Phòng 105' },
   { id: '201', name: 'Phòng 201' },
+  { id: '202', name: 'Phòng 202' },
+  { id: '203', name: 'Phòng 203' },
+  { id: '204', name: 'Phòng 204' },
 ];
 
 const MOCK_CHECKLIST = [

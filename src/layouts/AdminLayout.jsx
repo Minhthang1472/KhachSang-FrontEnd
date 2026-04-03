@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Typography, Badge, Avatar, Space, Dropdown, Popover, Button, Empty, Divider } from 'antd';
-import { 
-  DashboardOutlined, 
-  TeamOutlined, 
+import {
+  DashboardOutlined,
+  TeamOutlined,
   SafetyCertificateOutlined,
   BellOutlined,
   UserOutlined,
@@ -10,6 +10,7 @@ import {
   ClearOutlined,
   AppstoreOutlined,
   WarningOutlined,
+  HomeOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -28,15 +29,15 @@ const AdminLayout = () => {
 
   // ================= CẢI TIẾN Ở ĐÂY =================
   // Lôi thông tin user hiện tại từ "Kho" ra để dùng
-  const { user } = useAuthStore(); 
+  const { user } = useAuthStore();
   // ===================================================
 
   // Danh sách các menu bên trái
   const menuItems = [
     { key: '/admin/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: '/admin/house-keeping', icon: <ClearOutlined />, label: 'Dọn phòng' },
     { key: '/admin/users', icon: <TeamOutlined />, label: 'Danh sách Nhân sự' },
     { key: '/admin/roles', icon: <SafetyCertificateOutlined />, label: 'Vai trò & Phân quyền' },
-    { key: '/admin/inventory', icon: <AppstoreOutlined />, label: 'Kho vật tư' },
     { key: '/admin/loss-compensation', icon: <WarningOutlined />, label: 'Thất thoát & Đền bù' },
   ];
 
@@ -93,7 +94,7 @@ const AdminLayout = () => {
               {index < notifications.length - 1 && <Divider style={{ margin: '8px 0' }} />}
             </div>
           ))}
-          
+
           {notifications.length > 0 && (
             <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f0f0f0' }}>
               <Button
@@ -147,14 +148,14 @@ const AdminLayout = () => {
                 <BellOutlined style={{ fontSize: '20px', cursor: 'pointer' }} />
               </Badge>
             </Popover>
-            
+
             {/* Dropdown bọc Avatar để làm nút Đăng xuất */}
-            <Dropdown 
+            <Dropdown
               menu={{
                 items: [
-                  { 
-                    key: 'logout', 
-                    danger: true, 
+                  {
+                    key: 'logout',
+                    danger: true,
                     label: 'Đăng xuất',
                     onClick: () => {
                       useAuthStore.getState().clearAuth(); // Xóa token
@@ -162,14 +163,14 @@ const AdminLayout = () => {
                     }
                   }
                 ]
-              }} 
+              }}
               placement="bottomRight"
             >
               <Space style={{ cursor: 'pointer' }}>
                 {/* ================= CẢI TIẾN Ở ĐÂY ================= */}
                 {/* Tự động tạo ảnh đại diện dựa trên tên của người dùng */}
                 <Avatar icon={<UserOutlined />} src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user?.name || 'Guest'}`} />
-                
+
                 {/* Hiển thị tên và vai trò động từ Token */}
                 <Text strong>{user?.name || 'Khách'} ({user?.role || 'Chưa rõ'})</Text>
                 {/* =================================================== */}
