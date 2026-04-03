@@ -1,141 +1,172 @@
-import React, { useState } from 'react';
-import { Typography, Row, Col, Card, Badge, Avatar, Button, Tag, notification, Space, Divider } from 'antd';
-import { ClearOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, UserOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Typography, Row, Col, Card, Badge, Button, Tag, Space, Divider, message, Spin } from 'antd';
+import { ClearOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { roomApi } from '../../../api/roomApi';
+import { useNotification } from '../../../context/notificationContext';
 
 const { Title, Text } = Typography;
 
-// Mock Data
-const initialTasks = [
-  { id: '1', roomId: '101', roomType: 'Standard', status: 'todo', priority: 'high', notes: 'Khách yêu cầu dọn gấp' },
-  { id: '2', roomId: '205', roomType: 'Deluxe', status: 'todo', priority: 'normal', notes: 'Dọn hàng ngày' },
-  { id: '3', roomId: '302', roomType: 'VIP', status: 'todo', priority: 'high', notes: 'Chuẩn bị check-in 14:00' },
-  { id: '4', roomId: '105', roomType: 'Superior', status: 'in-progress', priority: 'normal', notes: '', staff: 'Nguyễn Văn A' },
-  { id: '5', roomId: '201', roomType: 'Standard', status: 'done', priority: 'normal', notes: '', staff: 'Trần Thị B', time: '10:30 AM' },
-];
-
 const HousekeepingPage = () => {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { addNotification } = useNotification();
 
-  const moveTask = (taskId, newStatus) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        return { ...task, status: newStatus, staff: newStatus === 'in-progress' ? 'Tôi (Nhân viên)' : task.staff };
-      }
-      return task;
-    }));
-    
-    const statusMessages = {
-      'in-progress': 'Đã nhận việc dọn phòng!',
-      'done': 'Đã hoàn tất dọn phòng!'
-    };
+  // Gọi API lấy dữ liệu phòng
+  const fetchHousekeepingRooms = async () => {
+    setLoading(true);
+    try {
+      const res = await roomApi.getHousekeepingRooms();
+      // Chuyển đổi dữ liệu C# sang format của giao diện
+      const mappedTasks = res.data.map(room => ({
+        id: room.id,
+        roomId: room.roomNumber,
+        roomType: room.roomTypeName,
+        floor: room.floor,
+        column: room.status === 'Cleaning' ? 'in-progress' : 'todo',
+        originalStatus: room.status 
+      }));
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error('Lỗi lấy danh sách dọn phòng:', error);
+      message.error('Không thể kết nối đến máy chủ Backend!');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    notification.success({
-      message: statusMessages[newStatus],
-      description: 'Hệ thống đã cập nhật trạng thái phòng.',
-      placement: 'bottomRight'
-    });
+  useEffect(() => {
+    fetchHousekeepingRooms();
+  }, []);
+
+  // Xử lý khi nhấn nút chuyển trạng thái
+  const handleUpdateStatus = async (taskId, roomNumber, targetStatus) => {
+    try {
+      await roomApi.updateCleaningStatus(taskId, targetStatus);
+      
+      message.success(`Phòng ${roomNumber} đã chuyển sang: ${targetStatus}`);
+      addNotification('Cập nhật buồng phòng', `Phòng ${roomNumber} -> ${targetStatus}`, 'success');
+
+      // Tải lại dữ liệu
+      fetchHousekeepingRooms();
+    } catch (error) {
+      console.error('Lỗi cập nhật:', error);
+      message.error(error.response?.data?.Message || 'Không thể cập nhật trạng thái phòng!');
+    }
   };
 
   const renderTaskCard = (task) => (
     <Card 
       key={task.id} 
       className="room-card-hover"
-      style={{ marginBottom: 16, borderLeft: task.priority === 'high' ? '4px solid #ff4d4f' : '4px solid #1890ff', borderRadius: 8 }}
-      bodyStyle={{ padding: '16px' }}
+      style={{ 
+        marginBottom: 16, 
+        borderLeft: task.originalStatus === 'Maintenance' ? '4px solid #faad14' : '4px solid #1890ff', 
+        borderRadius: 8 
+      }}
+      // ✅ ĐÃ SỬA: Đổi bodyStyle thành styles.body theo chuẩn Ant Design mới
+      styles={{ body: { padding: '16px' } }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <Space>
           <Title level={4} style={{ margin: 0 }}>P.{task.roomId}</Title>
-          <Tag color={task.priority === 'high' ? 'error' : 'processing'}>
-            {task.priority === 'high' ? 'Ưu tiên cao' : 'Thường'}
-          </Tag>
+          {task.originalStatus === 'Maintenance' && (
+            <Tag color="warning">Bảo trì</Tag>
+          )}
+          {task.originalStatus === 'Dirty' && (
+            <Tag color="error">Chưa dọn</Tag>
+          )}
         </Space>
-        {task.status === 'done' && <Text type="secondary" style={{ fontSize: 12 }}>{task.time}</Text>}
+        <Text type="secondary" style={{ fontSize: 12 }}>Tầng {task.floor}</Text>
       </div>
 
-      <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>Loại: {task.roomType}</Text>
-      
-      {task.notes && (
-        <div style={{ backgroundColor: '#fffbe6', padding: '8px 12px', borderRadius: 4, marginBottom: 12 }}>
-          <Text style={{ fontSize: 13, color: '#d46b08' }}><ExclamationCircleOutlined /> {task.notes}</Text>
-        </div>
-      )}
+      <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>Loại: <Text strong>{task.roomType}</Text></Text>
 
-      {task.staff && (
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-          <Avatar size="small" icon={<UserOutlined />} style={{ marginRight: 8 }} />
-          <Text style={{ fontSize: 13 }}>Phụ trách: <strong>{task.staff}</strong></Text>
+      {task.originalStatus === 'Maintenance' && (
+        <div style={{ backgroundColor: '#fffbe6', padding: '8px 12px', borderRadius: 4, marginBottom: 12 }}>
+          <Text style={{ fontSize: 13, color: '#d46b08' }}><ExclamationCircleOutlined /> Phòng đang bảo trì, cẩn thận khi dọn.</Text>
         </div>
       )}
 
       <Divider style={{ margin: '12px 0' }} />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        {task.status === 'todo' && (
-          <Button type="primary" size="small" icon={<ClearOutlined />} onClick={() => moveTask(task.id, 'in-progress')}>
+        {task.column === 'todo' && (
+          <Button 
+            type="primary" 
+            size="small" 
+            icon={<ClearOutlined />} 
+            onClick={() => handleUpdateStatus(task.id, task.roomId, 'Cleaning')}
+          >
             Bắt đầu dọn
           </Button>
         )}
-        {task.status === 'in-progress' && (
+        {task.column === 'in-progress' && (
           <Button 
             type="primary" 
             size="small" 
             icon={<CheckCircleOutlined />} 
             style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-            onClick={() => moveTask(task.id, 'done')}
+            onClick={() => handleUpdateStatus(task.id, task.roomId, 'Available')}
           >
-            Hoàn tất
+            Hoàn tất (Sẵn sàng)
           </Button>
         )}
       </div>
     </Card>
   );
 
-  const todoTasks = tasks.filter(t => t.status === 'todo');
-  const inProgressTasks = tasks.filter(t => t.status === 'in-progress');
-  const doneTasks = tasks.filter(t => t.status === 'done');
+  const todoTasks = tasks.filter(t => t.column === 'todo');
+  const inProgressTasks = tasks.filter(t => t.column === 'in-progress');
 
   return (
     <div style={{ padding: '0 10px' }}>
-      <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0, fontWeight: 800, color: '#1f1f1f' }}>Quản lý Dọn Phòng</Title>
-        <Text type="secondary">Phân công và theo dõi tiến độ công việc buồng phòng (Housekeeping Kanban)</Text>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <Title level={3} style={{ margin: 0, fontWeight: 800, color: '#1f1f1f' }}>Quản lý Dọn Phòng</Title>
+          <Text type="secondary">Phân công và theo dõi tiến độ công việc buồng phòng</Text>
+        </div>
+        <Button icon={<ReloadOutlined />} onClick={fetchHousekeepingRooms} loading={loading}>Làm mới</Button>
       </div>
 
-      <Row gutter={[24, 24]}>
-        {/* Cột Cần Dọn */}
-        <Col xs={24} md={8}>
-          <div style={{ backgroundColor: '#f0f2f5', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-              <Badge color="#ff4d4f" style={{ marginRight: 8 }} />
-              <Title level={5} style={{ margin: 0 }}>Cần dọn ({todoTasks.length})</Title>
+      {/* ✅ ĐÃ SỬA: Đổi tip thành description để hết cảnh báo vàng */}
+      <Spin spinning={loading} description="Đang tải dữ liệu buồng phòng...">
+        <Row gutter={[24, 24]}>
+          {/* Cột Cần Dọn */}
+          <Col xs={24} md={8}>
+            <div style={{ backgroundColor: '#f0f2f5', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                <Badge color="#ff4d4f" style={{ marginRight: 8 }} />
+                <Title level={5} style={{ margin: 0 }}>Cần dọn ({todoTasks.length})</Title>
+              </div>
+              {todoTasks.map(renderTaskCard)}
             </div>
-            {todoTasks.map(renderTaskCard)}
-          </div>
-        </Col>
+          </Col>
 
-        {/* Cột Đang Dọn */}
-        <Col xs={24} md={8}>
-          <div style={{ backgroundColor: '#e6f7ff', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-              <Badge color="#1890ff" style={{ marginRight: 8 }} />
-              <Title level={5} style={{ margin: 0 }}>Đang dọn ({inProgressTasks.length})</Title>
+          {/* Cột Đang Dọn */}
+          <Col xs={24} md={8}>
+            <div style={{ backgroundColor: '#e6f7ff', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                <Badge color="#1890ff" style={{ marginRight: 8 }} />
+                <Title level={5} style={{ margin: 0 }}>Đang dọn ({inProgressTasks.length})</Title>
+              </div>
+              {inProgressTasks.map(renderTaskCard)}
             </div>
-            {inProgressTasks.map(renderTaskCard)}
-          </div>
-        </Col>
+          </Col>
 
-        {/* Cột Hoàn Tất */}
-        <Col xs={24} md={8}>
-          <div style={{ backgroundColor: '#f6ffed', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-              <Badge color="#52c41a" style={{ marginRight: 8 }} />
-              <Title level={5} style={{ margin: 0 }}>Đã xong ({doneTasks.length})</Title>
+          {/* Cột Hoàn Tất */}
+          <Col xs={24} md={8}>
+            <div style={{ backgroundColor: '#f6ffed', padding: '16px', borderRadius: 12, minHeight: 'calc(100vh - 200px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                <Badge color="#52c41a" style={{ marginRight: 8 }} />
+                <Title level={5} style={{ margin: 0 }}>Lưu trữ</Title>
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 40 }}>
+                <Text type="secondary">Các phòng sau khi bấm "Hoàn tất" sẽ tự động chuyển thành "Available" và biến mất khỏi bảng này.</Text>
+              </div>
             </div>
-            {doneTasks.map(renderTaskCard)}
-          </div>
-        </Col>
-      </Row>
+          </Col>
+        </Row>
+      </Spin>
     </div>
   );
 };

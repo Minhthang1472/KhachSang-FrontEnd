@@ -1,152 +1,210 @@
-import React, { useState } from 'react';
-import { Typography, Table, Button, Select, Alert, Tag, Space, notification } from 'antd';
-import { WarningOutlined, SearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Typography, Table, Button, Select, Alert, Modal, Form, InputNumber, Input, message, Tabs, Popconfirm, Space, Tag } from 'antd';
+import { WarningOutlined, DeleteOutlined, FileTextOutlined, CheckSquareOutlined, ReloadOutlined } from '@ant-design/icons';
+import { lossDamageApi } from '../../../api/lossDamageApi';
+import { useNotification } from '../../../context/notificationContext';
+import dayjs from 'dayjs'; // Thư viện format ngày tháng (cài sẵn trong dự án thường có)
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const ROOMS = [
-  { id: '101', name: 'Phòng 101' },
-  { id: '102', name: 'Phòng 102' },
-  { id: '103', name: 'Phòng 103' },
-  { id: '104', name: 'Phòng 104' },
-  { id: '105', name: 'Phòng 105' },
-  { id: '201', name: 'Phòng 201' },
-  { id: '202', name: 'Phòng 202' },
-  { id: '203', name: 'Phòng 203' },
-  { id: '204', name: 'Phòng 204' },
+// MOCK DATA: Chờ sau này bạn viết API lấy danh sách phòng & kho thì thay thế
+// QUAN TRỌNG: bookingDetailId và id (của vật tư) phải TỒN TẠI trong bảng SQL của bạn!
+const MOCK_ROOMS = [
+  { id: '101', name: 'Phòng 101', bookingDetailId: 1 }, 
+  { id: '102', name: 'Phòng 102', bookingDetailId: 2 },
 ];
 
 const MOCK_CHECKLIST = [
-  { id: 'TV01', name: 'Smart TV Samsung 43 inch', defaultQty: 1, status: 'ok' },
-  { id: 'AC01', name: 'Điều hòa Daikin 9000 BTU', defaultQty: 1, status: 'ok' },
-  { id: 'TW01', name: 'Khăn tắm cotton 70x140cm', defaultQty: 2, status: 'ok' },
-  { id: 'WA01', name: 'Nước suối Lavie 500ml', defaultQty: 4, status: 'ok' },
-  { id: 'CC01', name: 'Nước ngọt Coca Cola 320ml', defaultQty: 4, status: 'ok' },
-  { id: 'OR01', name: 'Bánh Oreo 133g', defaultQty: 0, status: 'ok' },
-  { id: 'KE01', name: 'Ấm đun nước siêu tốc Sunhouse', defaultQty: 1, status: 'ok' },
-  { id: 'BL01', name: 'Chăn lông vũ', defaultQty: 1, status: 'ok' },
-  { id: 'WD01', name: 'Tủ quần áo gỗ công nghiệp', defaultQty: 1, status: 'ok' },
+  { id: 1, name: 'Smart TV Samsung 43 inch', defaultQty: 1 },
+  { id: 2, name: 'Khăn tắm cotton 70x140cm', defaultQty: 2 },
+  { id: 3, name: 'Ấm đun siêu tốc Sunhouse', defaultQty: 1 },
 ];
 
 const LossCompensationPage = () => {
-  const [selectedRoom, setSelectedRoom] = useState('102');
-  const [checklist, setChecklist] = useState(MOCK_CHECKLIST);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedRoom, setSelectedRoom] = useState(MOCK_ROOMS[0].id);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reportingItem, setReportingItem] = useState(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [form] = Form.useForm();
 
-  const filteredChecklist = checklist.filter(item => {
-    if (statusFilter === 'all') return true;
-    return item.status === statusFilter;
-  });
+  const [historyData, setHistoryData] = useState([]);
+  const [tableLoading, setTableLoading] = useState(false);
 
-  const handleReportBroken = (itemId) => {
-    setChecklist(prev => prev.map(item => {
-      if (item.id === itemId) return { ...item, status: 'broken' };
-      return item;
-    }));
-    notification.warning({
-      message: 'Đã ghi nhận Hỏng/Mất',
-      description: 'Vật tư đã được đánh dấu đỏ chờ xử lý đền bù.',
-    });
+  const { addNotification } = useNotification();
+
+  // Gọi API GET
+  const fetchHistory = async () => {
+    setTableLoading(true);
+    try {
+      const res = await lossDamageApi.getAllLossAndDamages();
+      setHistoryData(res.data || []);
+    } catch (error) {
+      console.error('Lỗi tải dữ liệu:', error);
+      message.error('Không thể tải lịch sử đền bù từ máy chủ!');
+    } finally {
+      setTableLoading(false);
+    }
   };
 
-  const handleClearReport = (itemId) => {
-    setChecklist(prev => prev.map(item => {
-      if (item.id === itemId) return { ...item, status: 'ok' };
-      return item;
-    }));
-    notification.success({
-      message: 'Đã hủy báo cáo',
-    });
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  // Mở Modal Báo hỏng
+  const handleOpenReportModal = (item) => {
+    setReportingItem(item);
+    form.resetFields();
+    form.setFieldsValue({ quantity: 1, penaltyAmount: 0 }); 
+    setIsModalOpen(true);
   };
 
-  const columns = [
+  // Gọi API POST
+  const handleReportSubmit = async (values) => {
+    setSubmitLoading(true);
+    try {
+      const currentRoom = MOCK_ROOMS.find(r => r.id === selectedRoom);
+
+      // Payload bắn lên C# (Khớp với Model LossAndDamage)
+      const payload = {
+        roomInventoryId: reportingItem.id, // Id vật tư
+        bookingDetailId: currentRoom.bookingDetailId, // Id đặt phòng
+        quantity: values.quantity,
+        penaltyAmount: values.penaltyAmount, 
+        description: values.description || 'Nhân viên buồng phòng báo hỏng',
+      };
+
+      await lossDamageApi.createLossAndDamage(payload);
+      
+      message.success('Đã lưu biên bản đền bù thành công!');
+      addNotification('Biên bản mới', `Ghi nhận hỏng: ${reportingItem.name} tại ${currentRoom.name}`, 'warning');
+      
+      setIsModalOpen(false);
+      fetchHistory(); // Cập nhật lại bảng Lịch sử
+
+    } catch (error) {
+      console.error('Lỗi khi lưu:', error);
+      message.error('Lưu thất bại! (Kiểm tra lại Khóa Ngoại BookingDetailId hoặc RoomInventoryId có trong SQL chưa)');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  // Gọi API DELETE
+  const handleDeleteRecord = async (id) => {
+    try {
+      await lossDamageApi.deleteLossAndDamage(id);
+      message.success('Đã hủy biên bản thành công!');
+      fetchHistory();
+    } catch (error) {
+      message.error('Lỗi khi xóa biên bản!');
+    }
+  };
+
+  // Cột cho Bảng Kiểm tra (Tab 1)
+  const checklistColumns = [
+    { title: 'Tên vật tư', dataIndex: 'name', key: 'name' },
+    { title: 'Số lượng chuẩn', dataIndex: 'defaultQty', key: 'defaultQty', align: 'center' },
     {
-      title: 'Tên vật tư',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Số lượng chuẩn',
-      dataIndex: 'defaultQty',
-      key: 'defaultQty',
-      align: 'center',
-    },
-    {
-      title: 'Trạng thái',
-      key: 'status',
+      title: 'Thao tác',
+      key: 'action',
       align: 'right',
       render: (_, record) => (
-        <Space>
-          {record.status === 'ok' ? (
-            <Button
-              danger
-              icon={<WarningOutlined />}
-              onClick={() => handleReportBroken(record.id)}
-            >
-              Báo hỏng / Mất
-            </Button>
-          ) : (
-            <Space>
-              <Tag color="error" style={{ padding: '4px 10px', fontSize: '14px', borderRadius: '4px' }}>
-                <WarningOutlined /> Báo hỏng / Mất
-              </Tag>
-              <Button type="text" onClick={() => handleClearReport(record.id)}>Hủy báo cáo</Button>
-            </Space>
-          )}
-        </Space>
+        <Button danger icon={<WarningOutlined />} onClick={() => handleOpenReportModal(record)}>
+          Báo hỏng / Mất
+        </Button>
       ),
     },
   ];
 
+  // Cột cho Bảng Lịch sử (Tab 2) - Khớp với Dto của C#
+  const historyColumns = [
+    { 
+      title: 'Ngày ghi nhận', 
+      dataIndex: 'createdAt', 
+      key: 'createdAt',
+      render: (date) => date ? dayjs(date).format('DD/MM/YYYY HH:mm') : 'N/A'
+    },
+    { title: 'Phòng', dataIndex: 'roomNumber', key: 'roomNumber', render: text => <Tag color="blue">{text}</Tag> },
+    { title: 'Vật tư', dataIndex: 'itemName', key: 'itemName', render: text => <Text strong>{text}</Text> },
+    { title: 'SL', dataIndex: 'quantity', key: 'quantity', align: 'center' },
+    { 
+      title: 'Tiền phạt (VNĐ)', 
+      dataIndex: 'penaltyAmount', 
+      key: 'penaltyAmount',
+      render: (val) => <Text type="danger" strong>{val?.toLocaleString('vi-VN')} đ</Text>
+    },
+    { title: 'Ghi chú', dataIndex: 'description', key: 'description' },
+    { 
+      title: 'Thao tác', 
+      key: 'action',
+      align: 'center',
+      render: (_, record) => (
+        <Popconfirm title="Hủy biên bản này?" onConfirm={() => handleDeleteRecord(record.id)}>
+          <Button type="text" danger icon={<DeleteOutlined />} />
+        </Popconfirm>
+      )
+    }
+  ];
+
+  // Khai báo Tabs (Chuẩn Ant Design v5)
+  const tabItems = [
+    {
+      key: '1',
+      label: <span><CheckSquareOutlined /> Kiểm tra phòng</span>,
+      children: (
+        <>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+            <Space>
+              <Text strong>Chọn phòng kiểm tra:</Text>
+              <Select value={selectedRoom} onChange={setSelectedRoom} style={{ width: 150 }}>
+                {MOCK_ROOMS.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
+              </Select>
+            </Space>
+          </div>
+          <Alert title="Nhân viên buồng phòng kiểm tra thực tế và nhấn 'Báo hỏng' nếu có thất thoát." type="info" showIcon style={{ marginBottom: 16 }} />
+          <Table dataSource={MOCK_CHECKLIST} columns={checklistColumns} rowKey="id" pagination={false} bordered />
+        </>
+      )
+    },
+    {
+      key: '2',
+      label: <span><FileTextOutlined /> Lịch sử biên bản</span>,
+      children: (
+        <>
+           <div style={{ marginBottom: 16, textAlign: 'right' }}>
+              <Button icon={<ReloadOutlined />} onClick={fetchHistory} loading={tableLoading}>
+                 Làm mới dữ liệu
+              </Button>
+           </div>
+           <Table dataSource={historyData} columns={historyColumns} rowKey="id" loading={tableLoading} bordered />
+        </>
+      )
+    }
+  ];
+
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '0 20px 20px' }}>
-      <div style={{ padding: '20px 0', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={4} style={{ margin: 0 }}>Thất thoát & Đền bù - Checklist Phòng</Title>
-        <Space>
-          <Text strong>Chọn phòng kiểm tra:</Text>
-          <Select value={selectedRoom} onChange={setSelectedRoom} style={{ width: 200 }}>
-            {ROOMS.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
-          </Select>
-        </Space>
-      </div>
+    <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '24px', minHeight: '80vh' }}>
+      <Title level={3} style={{ marginBottom: 24, color: '#1890ff' }}>Quản lý Thất thoát & Đền bù</Title>
 
-      <Alert 
-        message={`Đang kiểm tra phòng: ${ROOMS.find(r => r.id === selectedRoom)?.name}`}
-        description="Vui lòng kiểm tra danh sách đồ đạc bên dưới và nhấn [Báo hỏng / Mất] nếu phát hiện thiếu sót hoặc hư hỏng."
-        type="info" 
-        showIcon 
-        style={{ margin: '20px 0' }}
-      />
+      <Tabs defaultActiveKey="1" items={tabItems} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
-        <Text strong>Danh sách đồ đạc</Text>
-        <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 200 }}>
-          <Option value="all">Tất cả trạng thái</Option>
-          <Option value="ok">Đang bình thường</Option>
-          <Option value="broken">Đã báo Hỏng / Mất</Option>
-        </Select>
-      </div>
-
-      <Table
-        dataSource={filteredChecklist}
-        columns={columns}
-        rowKey="id"
-        pagination={false}
-        bordered
-      />
-
-      <div style={{ marginTop: '20px', textAlign: 'right' }}>
-        <Button 
-          type="primary" 
-          size="large" 
-          icon={<CheckCircleOutlined />} 
-          style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-          onClick={() => notification.success({ message: 'Hoàn tất kiểm tra!' })}
-        >
-          Hoàn tất (Sạch sẽ)
-        </Button>
-      </div>
+      <Modal title={`Báo cáo hỏng/mất: ${reportingItem?.name}`} open={isModalOpen} onCancel={() => setIsModalOpen(false)} footer={null}>
+        <Form form={form} layout="vertical" onFinish={handleReportSubmit}>
+          <Form.Item label="Số lượng hỏng/mất" name="quantity" rules={[{ required: true, message: 'Nhập số lượng!' }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Số tiền phạt / đền bù (VNĐ)" name="penaltyAmount" rules={[{ required: true, message: 'Nhập số tiền!' }]}>
+            <InputNumber min={0} step={10000} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Ghi chú chi tiết" name="description">
+            <Input.TextArea rows={3} placeholder="Ví dụ: Vỡ màn hình TV..." />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" danger block loading={submitLoading}>
+            Xác nhận tạo biên bản
+          </Button>
+        </Form>
+      </Modal>
     </div>
   );
 };
